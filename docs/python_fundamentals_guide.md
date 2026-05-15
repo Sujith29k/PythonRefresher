@@ -4819,6 +4819,3093 @@ Common interview questions from this section:
 
 ---
 
-**End of Sections 6, 7, and 8**
+## Memory Management and References
 
-_Ready for the next sections. Type "Continue with the next section" to proceed with Section 9: Memory Management and References._
+### Overview
+
+Understanding how Python manages memory is crucial for writing efficient code and avoiding memory-related bugs. Python uses automatic memory management with reference counting and garbage collection.
+
+### Python Memory Model
+
+#### Object Identity and References
+
+```python
+# Every object has: id (identity), type, and value
+x = 42
+print(id(x))      # Memory address (identity)
+print(type(x))    # <class 'int'>
+print(x)          # Value: 42
+
+# Variables are references (names bound to objects)
+a = [1, 2, 3]
+b = a  # b references same object as a
+
+b.append(4)
+print(a)  # [1, 2, 3, 4] - both point to same list!
+
+# Check if same object
+print(a is b)      # True (same identity)
+print(id(a) == id(b))  # True
+
+# Different objects with same value
+x = [1, 2, 3]
+y = [1, 2, 3]
+print(x == y)  # True (equal values)
+print(x is y)  # False (different objects)
+```
+
+```mermaid
+graph LR
+    A[Variable 'a'] --> C[List Object<br/>[1, 2, 3]]
+    B[Variable 'b'] --> C
+
+    D[Variable 'x'] --> E[List Object<br/>[1, 2, 3]]
+    F[Variable 'y'] --> G[List Object<br/>[1, 2, 3]]
+
+    style C fill:#90EE90
+    style E fill:#FFE6A0
+    style G fill:#E6F3FF
+```
+
+#### `is` vs `==`
+
+```python
+# == compares values
+# is compares identity
+
+a = [1, 2, 3]
+b = [1, 2, 3]
+print(a == b)  # True (same value)
+print(a is b)  # False (different objects)
+
+# Small integers are cached (interned)
+x = 256
+y = 256
+print(x is y)  # True (same object! Python caches small ints)
+
+x = 257
+y = 257
+print(x is y)  # False (larger ints may not be cached)
+
+# String interning
+s1 = "hello"
+s2 = "hello"
+print(s1 is s2)  # True (strings are interned)
+
+s1 = "hello world"
+s2 = "hello world"
+print(s1 is s2)  # May be True or False (depends on string)
+
+# Always use 'is' for None, True, False
+x = None
+if x is None:  # Correct
+    pass
+
+if x == None:  # Works but not idiomatic
+    pass
+```
+
+### Reference Counting
+
+Python's primary memory management mechanism.
+
+```python
+import sys
+
+# Reference count
+x = [1, 2, 3]
+print(sys.getrefcount(x))  # At least 2 (x and function parameter)
+
+y = x  # Another reference
+print(sys.getrefcount(x))  # Increased
+
+del y  # Remove reference
+print(sys.getrefcount(x))  # Decreased
+
+# When reference count reaches 0, object is deallocated
+
+# Example: reference count lifecycle
+data = [1, 2, 3]  # refcount = 1
+refs = [data]     # refcount = 2
+more_refs = refs  # data refcount = 3 (via refs and more_refs)
+
+del data          # refcount = 2
+refs.clear()      # refcount = 1
+more_refs = None  # refcount = 0 → object deallocated
+```
+
+### Mutable vs Immutable Objects
+
+#### Immutable Types
+
+Cannot be changed after creation. Operations create new objects.
+
+```python
+# Immutable: int, float, complex, bool, str, tuple, frozenset, bytes
+
+# Strings are immutable
+s = "hello"
+print(id(s))
+s = s + " world"  # Creates NEW string object
+print(id(s))  # Different id
+
+# Integers are immutable
+x = 10
+print(id(x))
+x += 5  # Creates new int object
+print(id(x))  # Different id
+
+# Tuples are immutable
+t = (1, 2, 3)
+# t[0] = 10  # TypeError: tuple does not support item assignment
+
+# But if tuple contains mutable objects...
+t = ([1, 2], [3, 4])
+t[0].append(3)  # This works! The list inside is mutable
+print(t)  # ([1, 2, 3], [3, 4])
+```
+
+#### Mutable Types
+
+Can be modified in place without creating new object.
+
+```python
+# Mutable: list, dict, set, bytearray, user-defined classes
+
+# Lists are mutable
+lst = [1, 2, 3]
+print(id(lst))
+lst.append(4)  # Modifies same object
+print(id(lst))  # Same id!
+
+# Dictionaries are mutable
+d = {'a': 1}
+print(id(d))
+d['b'] = 2  # Modifies same object
+print(id(d))  # Same id
+
+# Sets are mutable
+s = {1, 2, 3}
+print(id(s))
+s.add(4)  # Modifies same object
+print(id(s))  # Same id
+```
+
+### Shallow vs Deep Copy
+
+```python
+import copy
+
+# Assignment - both reference same object
+original = [1, 2, [3, 4]]
+reference = original
+
+reference.append(5)
+print(original)  # [1, 2, [3, 4], 5] - modified!
+
+# Shallow copy - new object, but nested objects are references
+original = [1, 2, [3, 4]]
+shallow = original.copy()  # or copy.copy(original) or original[:]
+
+shallow.append(5)
+print(original)  # [1, 2, [3, 4]] - not modified
+print(shallow)   # [1, 2, [3, 4], 5]
+
+# But nested objects are still shared!
+shallow[2].append(5)
+print(original)  # [1, 2, [3, 4, 5]] - nested list modified!
+print(shallow)   # [1, 2, [3, 4, 5]]
+
+# Deep copy - new object with copies of nested objects
+original = [1, 2, [3, 4]]
+deep = copy.deepcopy(original)
+
+deep[2].append(5)
+print(original)  # [1, 2, [3, 4]] - not modified
+print(deep)      # [1, 2, [3, 4, 5]]
+
+# Dictionary copying
+d1 = {'a': 1, 'b': [2, 3]}
+d2 = d1.copy()  # Shallow copy
+d2['b'].append(4)
+print(d1)  # {'a': 1, 'b': [2, 3, 4]} - nested list shared!
+
+d3 = copy.deepcopy(d1)
+d3['b'].append(5)
+print(d1)  # {'a': 1, 'b': [2, 3, 4]} - not affected
+```
+
+```mermaid
+graph TD
+    subgraph "Assignment"
+        A1[var1] --> O1[Object]
+        A2[var2] --> O1
+    end
+
+    subgraph "Shallow Copy"
+        B1[original] --> O2[List Object]
+        B2[shallow] --> O3[New List Object]
+        O2 --> N1[Nested Object]
+        O3 --> N1
+    end
+
+    subgraph "Deep Copy"
+        C1[original] --> O4[List Object]
+        C2[deep] --> O5[New List Object]
+        O4 --> N2[Nested Object]
+        O5 --> N3[Copy of Nested]
+    end
+
+    style O1 fill:#FFB6C6
+    style N1 fill:#FFE6A0
+    style N2 fill:#E6F3FF
+    style N3 fill:#90EE90
+```
+
+### Garbage Collection
+
+Python uses garbage collection to handle circular references.
+
+```python
+import gc
+
+# Garbage collector info
+print(gc.isenabled())  # True (enabled by default)
+print(gc.get_count())  # (threshold0, threshold1, threshold2)
+
+# Circular reference (reference counting can't handle this)
+class Node:
+    def __init__(self, value):
+        self.value = value
+        self.next = None
+
+# Create circular reference
+node1 = Node(1)
+node2 = Node(2)
+node1.next = node2
+node2.next = node1  # Circular!
+
+# Even after deleting variables, objects won't be freed by refcount alone
+del node1, node2
+
+# Garbage collector detects and cleans up circular references
+gc.collect()  # Manually trigger collection
+
+# Disable/enable garbage collection
+gc.disable()
+gc.enable()
+
+# Garbage collector generations (0, 1, 2)
+# Generation 0: youngest objects (collected most frequently)
+# Generation 1: survived one collection
+# Generation 2: survived two collections (collected least frequently)
+
+# Set thresholds
+gc.set_threshold(700, 10, 10)  # (gen0, gen1, gen2)
+
+# Get all tracked objects
+# objects = gc.get_objects()  # All objects tracked by GC
+
+# Debugging memory leaks
+gc.set_debug(gc.DEBUG_LEAK)
+```
+
+### Memory Optimization Techniques
+
+#### 1. Use Generators for Large Datasets
+
+```python
+# Bad: Creates entire list in memory
+def get_numbers(n):
+    return [i for i in range(n)]
+
+numbers = get_numbers(1000000)  # ~8MB in memory
+
+# Good: Generator - one item at a time
+def get_numbers(n):
+    for i in range(n):
+        yield i
+
+numbers = get_numbers(1000000)  # Minimal memory
+for num in numbers:
+    pass  # Process one at a time
+```
+
+#### 2. Use `__slots__` for Many Instances
+
+```python
+# Without __slots__: each instance has __dict__
+class PointSlow:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+# With __slots__: fixed attributes, no __dict__
+class PointFast:
+    __slots__ = ['x', 'y']
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+# Memory usage
+import sys
+p1 = PointSlow(1, 2)
+p2 = PointFast(1, 2)
+
+print(sys.getsizeof(p1.__dict__))  # ~232 bytes
+# print(sys.getsizeof(p2.__dict__))  # AttributeError - no __dict__!
+
+# Creating many instances
+# PointFast uses ~40% less memory than PointSlow
+
+# Trade-off: can't add new attributes dynamically
+p1.z = 3  # Works
+# p2.z = 3  # AttributeError!
+```
+
+#### 3. Use Appropriate Data Structures
+
+```python
+# Memory efficient choices
+
+# Instead of list, use array for homogeneous numeric data
+import array
+arr = array.array('i', [1, 2, 3, 4, 5])  # Less memory than list
+
+# Use tuple instead of list for immutable data
+coordinates = (10, 20)  # Less memory than [10, 20]
+
+# Use set for membership testing (also faster)
+# O(1) vs O(n) for list
+
+# Use deque for queue operations
+from collections import deque
+queue = deque()  # More efficient than list for append/pop at both ends
+
+# Use generators instead of list comprehensions when possible
+# Good for large data
+squares = (x**2 for x in range(1000000))  # Generator
+# Instead of:
+# squares = [x**2 for x in range(1000000)]  # List
+```
+
+#### 4. Delete Unused Objects
+
+```python
+# Explicitly delete large objects when done
+large_data = [i for i in range(10000000)]
+# ... use data ...
+del large_data  # Free memory immediately
+
+# Or use context managers
+class ResourceManager:
+    def __enter__(self):
+        self.resource = allocate_large_resource()
+        return self.resource
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        del self.resource  # Clean up
+        return False
+
+with ResourceManager() as resource:
+    # Use resource
+    pass
+# Resource automatically cleaned up
+```
+
+### Weak References
+
+References that don't increase reference count.
+
+```python
+import weakref
+
+class ExpensiveObject:
+    def __init__(self, name):
+        self.name = name
+
+    def __del__(self):
+        print(f"{self.name} being deleted")
+
+# Regular reference
+obj = ExpensiveObject("regular")
+# Object stays alive
+
+# Weak reference
+obj = ExpensiveObject("weak")
+weak_ref = weakref.ref(obj)
+
+print(weak_ref())  # Access object: <ExpensiveObject...>
+print(weak_ref().name)  # "weak"
+
+del obj  # Object can be garbage collected
+# "weak being deleted" printed
+
+print(weak_ref())  # None (object was deleted)
+
+# WeakValueDictionary - values don't prevent GC
+cache = weakref.WeakValueDictionary()
+
+obj = ExpensiveObject("cached")
+cache['key'] = obj
+
+print(cache['key'])  # Works
+
+del obj  # Object deleted from cache automatically
+# print(cache['key'])  # KeyError
+
+# Use case: caching without preventing GC
+```
+
+### Memory Profiling
+
+```python
+# 1. sys.getsizeof - get size of object
+import sys
+
+x = [1, 2, 3, 4, 5]
+print(sys.getsizeof(x))  # Size in bytes
+
+# Note: doesn't include size of referenced objects!
+nested = [[1, 2], [3, 4]]
+print(sys.getsizeof(nested))  # Only outer list size
+
+# 2. tracemalloc - trace memory allocations
+import tracemalloc
+
+tracemalloc.start()
+
+# Code to profile
+data = [i for i in range(100000)]
+
+current, peak = tracemalloc.get_traced_memory()
+print(f"Current memory: {current / 1024:.2f} KB")
+print(f"Peak memory: {peak / 1024:.2f} KB")
+
+tracemalloc.stop()
+
+# 3. Get top memory consumers
+tracemalloc.start()
+
+# ... code ...
+
+snapshot = tracemalloc.take_snapshot()
+top_stats = snapshot.statistics('lineno')
+
+print("Top 3 memory allocations:")
+for stat in top_stats[:3]:
+    print(stat)
+
+tracemalloc.stop()
+
+# 4. External tools
+# memory_profiler: line-by-line memory usage
+# @profile decorator
+# python -m memory_profiler script.py
+
+# objgraph: visualize object references
+# import objgraph
+# objgraph.show_most_common_types()
+```
+
+### Practical Example: Memory-Efficient Data Processing
+
+```python
+import sys
+from collections import deque
+import weakref
+
+class MemoryEfficientProcessor:
+    """Process large datasets efficiently"""
+
+    def __init__(self, max_cache_size=1000):
+        self.max_cache_size = max_cache_size
+        self._cache = {}  # LRU cache
+        self._cache_order = deque()
+
+    def process_file_generator(self, filename):
+        """Process file line by line (generator)"""
+        with open(filename, 'r') as f:
+            for line in f:
+                # Process one line at a time
+                yield self.process_line(line.strip())
+                # Previous lines can be garbage collected
+
+    def process_line(self, line):
+        """Process single line with caching"""
+        # Check cache
+        if line in self._cache:
+            return self._cache[line]
+
+        # Process (expensive operation)
+        result = line.upper()  # Simplified
+
+        # Add to cache with LRU eviction
+        if len(self._cache) >= self.max_cache_size:
+            # Remove oldest entry
+            oldest = self._cache_order.popleft()
+            del self._cache[oldest]
+
+        self._cache[line] = result
+        self._cache_order.append(line)
+
+        return result
+
+    def batch_process(self, items, batch_size=1000):
+        """Process in batches to limit memory"""
+        results = []
+
+        for i in range(0, len(items), batch_size):
+            batch = items[i:i + batch_size]
+
+            # Process batch
+            batch_results = [self.process_line(item) for item in batch]
+            results.extend(batch_results)
+
+            # Clear intermediate data
+            del batch, batch_results
+
+        return results
+
+# Compare memory usage
+def inefficient_processing(filename):
+    """Loads entire file into memory"""
+    with open(filename, 'r') as f:
+        lines = f.readlines()  # All lines in memory!
+
+    return [line.strip().upper() for line in lines]
+
+def efficient_processing(filename):
+    """Processes file line by line"""
+    processor = MemoryEfficientProcessor()
+
+    # Generator - one line at a time
+    for result in processor.process_file_generator(filename):
+        # Process result
+        pass  # or write to output
+
+# Memory optimization with __slots__
+class DataPoint:
+    __slots__ = ['x', 'y', 'timestamp']
+
+    def __init__(self, x, y, timestamp):
+        self.x = x
+        self.y = y
+        self.timestamp = timestamp
+
+# Creating 1 million data points
+# With __slots__: ~60MB
+# Without __slots__: ~150MB (2.5x more!)
+```
+
+### Interview Insight: Why This Matters
+
+Understanding memory management helps you:
+
+- Write memory-efficient code
+- Debug memory leaks
+- Optimize performance
+- Make informed design decisions
+
+Common interview questions from this section:
+
+- "Explain reference counting in Python"
+- "What's the difference between `is` and `==`?"
+- "What are mutable vs immutable types?"
+- "Explain shallow copy vs deep copy"
+- "How does Python's garbage collector work?"
+- "What are circular references and how are they handled?"
+- "What is `__slots__` and when would you use it?"
+- "Explain weak references"
+- "How do you profile memory usage in Python?"
+
+---
+
+## Iterators, Generators, and Decorators
+
+### Overview
+
+Python's iteration protocol, generators, and decorators are powerful features that enable elegant, efficient code. These concepts are fundamental to understanding Python's design philosophy.
+
+### Iterators
+
+Objects that implement the iterator protocol (`__iter__` and `__next__`).
+
+#### The Iterator Protocol
+
+```python
+# Any object with __iter__ and __next__ is an iterator
+
+class CountDown:
+    def __init__(self, start):
+        self.current = start
+
+    def __iter__(self):
+        """Returns the iterator object (self)"""
+        return self
+
+    def __next__(self):
+        """Returns the next value"""
+        if self.current <= 0:
+            raise StopIteration
+
+        self.current -= 1
+        return self.current + 1
+
+# Using the iterator
+counter = CountDown(5)
+for num in counter:
+    print(num)  # 5, 4, 3, 2, 1
+
+# Manual iteration
+counter = CountDown(3)
+print(next(counter))  # 3
+print(next(counter))  # 2
+print(next(counter))  # 1
+# print(next(counter))  # StopIteration exception
+
+# Built-in iterables
+my_list = [1, 2, 3]
+iterator = iter(my_list)  # Get iterator from iterable
+print(next(iterator))  # 1
+print(next(iterator))  # 2
+print(next(iterator))  # 3
+```
+
+#### Iterable vs Iterator
+
+```python
+# Iterable: has __iter__ method
+# Iterator: has __iter__ and __next__ methods
+
+# List is iterable but not iterator
+my_list = [1, 2, 3]
+print(hasattr(my_list, '__iter__'))   # True
+print(hasattr(my_list, '__next__'))   # False
+
+# Get iterator from iterable
+iterator = iter(my_list)
+print(hasattr(iterator, '__iter__'))  # True
+print(hasattr(iterator, '__next__'))  # True
+
+# For loop internally uses iterators
+# This:
+for item in my_list:
+    print(item)
+
+# Is equivalent to:
+iterator = iter(my_list)
+while True:
+    try:
+        item = next(iterator)
+        print(item)
+    except StopIteration:
+        break
+```
+
+```mermaid
+graph TD
+    A[Iterable Object] -->|iter__| B[Iterator Object]
+    B -->|__next__| C[Item 1]
+    B -->|__next__| D[Item 2]
+    B -->|__next__| E[Item 3]
+    B -->|__next__| F[StopIteration]
+
+    style A fill:#E6F3FF
+    style B fill:#FFE6A0
+    style F fill:#FFB6C6
+```
+
+#### Custom Iterable Classes
+
+```python
+# Separate iterable and iterator classes
+class MyRange:
+    """Iterable that returns an iterator"""
+    def __init__(self, start, end):
+        self.start = start
+        self.end = end
+
+    def __iter__(self):
+        """Return a new iterator"""
+        return MyRangeIterator(self.start, self.end)
+
+class MyRangeIterator:
+    """Iterator for MyRange"""
+    def __init__(self, start, end):
+        self.current = start
+        self.end = end
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.current >= self.end:
+            raise StopIteration
+        value = self.current
+        self.current += 1
+        return value
+
+# Multiple independent iterations
+my_range = MyRange(0, 5)
+
+# First iteration
+for num in my_range:
+    print(num, end=' ')  # 0 1 2 3 4
+print()
+
+# Second iteration (works because __iter__ returns new iterator)
+for num in my_range:
+    print(num, end=' ')  # 0 1 2 3 4
+```
+
+### Generators
+
+Functions that use `yield` to return values lazily.
+
+#### Generator Functions
+
+```python
+# Generator function (uses yield)
+def count_up_to(n):
+    count = 1
+    while count <= n:
+        yield count  # Yields value and suspends
+        count += 1
+
+# Generator object
+gen = count_up_to(5)
+print(type(gen))  # <class 'generator'>
+
+# Iterate over generator
+for num in gen:
+    print(num)  # 1, 2, 3, 4, 5
+
+# Manual iteration
+gen = count_up_to(3)
+print(next(gen))  # 1
+print(next(gen))  # 2
+print(next(gen))  # 3
+# print(next(gen))  # StopIteration
+
+# Generator state is preserved between yields
+def stateful_generator():
+    print("Start")
+    yield 1
+    print("After first yield")
+    yield 2
+    print("After second yield")
+    yield 3
+    print("End")
+
+gen = stateful_generator()
+print(next(gen))  # "Start" then 1
+print(next(gen))  # "After first yield" then 2
+print(next(gen))  # "After second yield" then 3
+```
+
+#### Generator Expressions
+
+Like list comprehensions but with parentheses.
+
+```python
+# List comprehension - creates entire list
+squares_list = [x**2 for x in range(10)]
+print(type(squares_list))  # <class 'list'>
+
+# Generator expression - lazy evaluation
+squares_gen = (x**2 for x in range(10))
+print(type(squares_gen))  # <class 'generator'>
+
+# Generator uses minimal memory
+import sys
+print(sys.getsizeof(squares_list))  # ~200 bytes
+print(sys.getsizeof(squares_gen))   # ~128 bytes
+
+# Generator for large datasets
+# Bad: loads all in memory
+large_list = [i**2 for i in range(1000000)]
+
+# Good: generates on demand
+large_gen = (i**2 for i in range(1000000))
+
+# Use in functions that accept iterables
+print(sum(x**2 for x in range(100)))  # No list created!
+
+# Chain generators
+numbers = (x for x in range(100))
+evens = (x for x in numbers if x % 2 == 0)
+squares = (x**2 for x in evens)
+print(list(squares)[:10])  # First 10 values
+```
+
+#### Generator Methods
+
+```python
+# send() - send value to generator
+def echo():
+    value = None
+    while True:
+        value = yield value
+
+gen = echo()
+next(gen)  # Prime the generator
+print(gen.send("Hello"))  # Hello
+print(gen.send("World"))  # World
+
+# throw() - raise exception in generator
+def error_handler():
+    try:
+        while True:
+            value = yield
+            print(f"Received: {value}")
+    except ValueError:
+        print("ValueError caught!")
+
+gen = error_handler()
+next(gen)
+gen.send("Test")  # Received: Test
+gen.throw(ValueError)  # ValueError caught!
+
+# close() - stop generator
+def infinite_counter():
+    count = 0
+    while True:
+        yield count
+        count += 1
+
+gen = infinite_counter()
+print(next(gen))  # 0
+print(next(gen))  # 1
+gen.close()
+# print(next(gen))  # StopIteration
+```
+
+#### Yield From (Python 3.3+)
+
+Delegate to another generator.
+
+```python
+# Without yield from
+def chain(*iterables):
+    for iterable in iterables:
+        for item in iterable:
+            yield item
+
+# With yield from
+def chain(*iterables):
+    for iterable in iterables:
+        yield from iterable
+
+# Usage
+for item in chain([1, 2], [3, 4], [5, 6]):
+    print(item)  # 1, 2, 3, 4, 5, 6
+
+# Flatten nested lists
+def flatten(nested):
+    for item in nested:
+        if isinstance(item, list):
+            yield from flatten(item)  # Recursive
+        else:
+            yield item
+
+nested = [1, [2, 3, [4, 5]], 6, [7]]
+print(list(flatten(nested)))  # [1, 2, 3, 4, 5, 6, 7]
+```
+
+### Practical Generator Patterns
+
+```python
+# 1. Infinite sequences
+def fibonacci():
+    """Infinite Fibonacci sequence"""
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+# Take first 10
+import itertools
+print(list(itertools.islice(fibonacci(), 10)))
+
+# 2. Pipeline processing
+def read_lines(filename):
+    """Read file line by line"""
+    with open(filename) as f:
+        for line in f:
+            yield line.strip()
+
+def filter_comments(lines):
+    """Filter out comment lines"""
+    for line in lines:
+        if not line.startswith('#'):
+            yield line
+
+def extract_numbers(lines):
+    """Extract numbers from lines"""
+    for line in lines:
+        if line.isdigit():
+            yield int(line)
+
+# Pipeline
+# lines = read_lines('data.txt')
+# no_comments = filter_comments(lines)
+# numbers = extract_numbers(no_comments)
+# print(sum(numbers))
+
+# 3. Sliding window
+def sliding_window(iterable, n):
+    """Generate sliding windows of size n"""
+    from collections import deque
+    window = deque(maxlen=n)
+
+    for item in iterable:
+        window.append(item)
+        if len(window) == n:
+            yield tuple(window)
+
+for window in sliding_window([1, 2, 3, 4, 5], 3):
+    print(window)
+# (1, 2, 3)
+# (2, 3, 4)
+# (3, 4, 5)
+
+# 4. State machines
+def traffic_light():
+    """Traffic light state machine"""
+    while True:
+        yield "Green"
+        yield "Yellow"
+        yield "Red"
+
+lights = traffic_light()
+for _ in range(6):
+    print(next(lights))  # Green, Yellow, Red, Green, Yellow, Red
+
+# 5. Batching
+def batch(iterable, batch_size):
+    """Yield batches from iterable"""
+    batch = []
+    for item in iterable:
+        batch.append(item)
+        if len(batch) == batch_size:
+            yield batch
+            batch = []
+    if batch:  # Yield remaining items
+        yield batch
+
+for b in batch(range(10), 3):
+    print(b)
+# [0, 1, 2]
+# [3, 4, 5]
+# [6, 7, 8]
+# [9]
+```
+
+### Decorators (Advanced)
+
+#### Function Decorators
+
+```python
+# Basic decorator
+def my_decorator(func):
+    def wrapper(*args, **kwargs):
+        print("Before function")
+        result = func(*args, **kwargs)
+        print("After function")
+        return result
+    return wrapper
+
+@my_decorator
+def greet(name):
+    print(f"Hello, {name}!")
+    return name
+
+greet("Alice")
+# Before function
+# Hello, Alice!
+# After function
+
+# Decorator with arguments
+def repeat(times):
+    def decorator(func):
+        def wrapper(*args, **kwargs):
+            for _ in range(times):
+                result = func(*args, **kwargs)
+            return result
+        return wrapper
+    return decorator
+
+@repeat(3)
+def say_hello():
+    print("Hello!")
+
+say_hello()
+# Hello!
+# Hello!
+# Hello!
+
+# Stacking decorators
+@decorator1
+@decorator2
+@decorator3
+def func():
+    pass
+
+# Equivalent to:
+# func = decorator1(decorator2(decorator3(func)))
+```
+
+#### Preserving Metadata
+
+```python
+from functools import wraps
+
+# Without @wraps
+def bad_decorator(func):
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@bad_decorator
+def greet(name):
+    """Greet someone"""
+    return f"Hello, {name}"
+
+print(greet.__name__)  # "wrapper" (wrong!)
+print(greet.__doc__)   # None (lost!)
+
+# With @wraps
+def good_decorator(func):
+    @wraps(func)  # Preserves func metadata
+    def wrapper(*args, **kwargs):
+        return func(*args, **kwargs)
+    return wrapper
+
+@good_decorator
+def greet(name):
+    """Greet someone"""
+    return f"Hello, {name}"
+
+print(greet.__name__)  # "greet" (correct!)
+print(greet.__doc__)   # "Greet someone" (preserved!)
+```
+
+#### Class Decorators
+
+```python
+# Decorator class
+class CountCalls:
+    def __init__(self, func):
+        self.func = func
+        self.count = 0
+
+    def __call__(self, *args, **kwargs):
+        self.count += 1
+        print(f"Call {self.count} to {self.func.__name__}")
+        return self.func(*args, **kwargs)
+
+@CountCalls
+def greet(name):
+    print(f"Hello, {name}!")
+
+greet("Alice")  # Call 1 to greet
+greet("Bob")    # Call 2 to greet
+
+# Class decorator (decorates a class)
+def add_str_method(cls):
+    cls.__str__ = lambda self: f"{cls.__name__} instance"
+    return cls
+
+@add_str_method
+class MyClass:
+    pass
+
+obj = MyClass()
+print(obj)  # MyClass instance
+```
+
+#### Practical Decorators
+
+```python
+# 1. Timing decorator
+import time
+from functools import wraps
+
+def timer(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        end = time.perf_counter()
+        print(f"{func.__name__} took {end - start:.4f}s")
+        return result
+    return wrapper
+
+@timer
+def slow_function():
+    time.sleep(1)
+    return "Done"
+
+slow_function()  # slow_function took 1.0001s
+
+# 2. Memoization decorator
+def memoize(func):
+    cache = {}
+    @wraps(func)
+    def wrapper(*args):
+        if args not in cache:
+            cache[args] = func(*args)
+        return cache[args]
+    return wrapper
+
+@memoize
+def fibonacci(n):
+    if n < 2:
+        return n
+    return fibonacci(n-1) + fibonacci(n-2)
+
+print(fibonacci(100))  # Fast with memoization!
+
+# 3. Validation decorator
+def validate_positive(func):
+    @wraps(func)
+    def wrapper(x):
+        if x < 0:
+            raise ValueError("Must be positive")
+        return func(x)
+    return wrapper
+
+@validate_positive
+def square_root(x):
+    return x ** 0.5
+
+print(square_root(16))  # 4.0
+# square_root(-1)  # ValueError
+
+# 4. Retry decorator
+def retry(max_attempts=3, delay=1):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_attempts):
+                try:
+                    return func(*args, **kwargs)
+                except Exception as e:
+                    if attempt == max_attempts - 1:
+                        raise
+                    print(f"Attempt {attempt + 1} failed: {e}")
+                    time.sleep(delay)
+        return wrapper
+    return decorator
+
+@retry(max_attempts=3, delay=0.1)
+def unreliable_function():
+    import random
+    if random.random() < 0.7:
+        raise Exception("Random failure")
+    return "Success"
+
+# 5. Singleton decorator
+def singleton(cls):
+    instances = {}
+    @wraps(cls)
+    def get_instance(*args, **kwargs):
+        if cls not in instances:
+            instances[cls] = cls(*args, **kwargs)
+        return instances[cls]
+    return get_instance
+
+@singleton
+class Database:
+    def __init__(self):
+        print("Creating database connection")
+
+db1 = Database()  # Creating database connection
+db2 = Database()  # No output - returns same instance
+print(db1 is db2)  # True
+```
+
+### Practical Example: Data Processing Pipeline
+
+```python
+from functools import wraps
+import time
+
+# Decorators for monitoring
+def log_execution(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        print(f"Executing {func.__name__}...")
+        result = func(*args, **kwargs)
+        print(f"Finished {func.__name__}")
+        return result
+    return wrapper
+
+def measure_time(func):
+    @wraps(func)
+    def wrapper(*args, **kwargs):
+        start = time.perf_counter()
+        result = func(*args, **kwargs)
+        elapsed = time.perf_counter() - start
+        print(f"{func.__name__} took {elapsed:.4f}s")
+        return result
+    return wrapper
+
+# Generator-based data pipeline
+class DataPipeline:
+    """Memory-efficient data processing pipeline"""
+
+    @staticmethod
+    def read_data(filename):
+        """Generator: read large file line by line"""
+        print(f"Reading from {filename}")
+        with open(filename, 'r') as f:
+            for line in f:
+                yield line.strip()
+
+    @staticmethod
+    def filter_valid(lines):
+        """Generator: filter valid lines"""
+        for line in lines:
+            if line and not line.startswith('#'):
+                yield line
+
+    @staticmethod
+    def parse_numbers(lines):
+        """Generator: parse numbers from lines"""
+        for line in lines:
+            try:
+                yield int(line)
+            except ValueError:
+                continue
+
+    @staticmethod
+    def transform(numbers, func):
+        """Generator: apply transformation"""
+        for num in numbers:
+            yield func(num)
+
+    @staticmethod
+    @log_execution
+    @measure_time
+    def process(filename, transform_func):
+        """Process data through pipeline"""
+        # Chain generators
+        lines = DataPipeline.read_data(filename)
+        valid_lines = DataPipeline.filter_valid(lines)
+        numbers = DataPipeline.parse_numbers(valid_lines)
+        transformed = DataPipeline.transform(numbers, transform_func)
+
+        # Consume generator and return results
+        return list(transformed)
+
+# Usage
+# results = DataPipeline.process('numbers.txt', lambda x: x ** 2)
+
+# Custom iterator for batched processing
+class BatchIterator:
+    """Iterator that yields batches"""
+
+    def __init__(self, data, batch_size):
+        self.data = data
+        self.batch_size = batch_size
+        self.index = 0
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        if self.index >= len(self.data):
+            raise StopIteration
+
+        batch = self.data[self.index:self.index + self.batch_size]
+        self.index += self.batch_size
+        return batch
+
+# Process in batches
+data = list(range(100))
+for batch in BatchIterator(data, 10):
+    # Process batch
+    print(f"Processing batch of {len(batch)} items")
+```
+
+### Interview Insight: Why This Matters
+
+Understanding iterators, generators, and decorators helps you:
+
+- Write memory-efficient code
+- Create elegant, reusable abstractions
+- Implement lazy evaluation patterns
+- Build powerful function composition
+
+Common interview questions from this section:
+
+- "What's the difference between an iterator and an iterable?"
+- "Explain how generators work internally"
+- "What's the benefit of generators over lists?"
+- "What does `yield from` do?"
+- "Explain how decorators work"
+- "What is `functools.wraps` and why use it?"
+- "Can you write a memoization decorator?"
+- "What are generator expressions?"
+- "Explain the iterator protocol"
+
+---
+
+## Basic Concurrency (Threading, Multiprocessing, Async)
+
+### Overview
+
+Python provides several mechanisms for concurrent execution: threading for I/O-bound tasks, multiprocessing for CPU-bound tasks, and async/await for asynchronous I/O. Understanding when to use each is crucial for performance.
+
+### Threading
+
+Threads share memory space but only one thread executes Python bytecode at a time (GIL).
+
+#### Basic Threading
+
+```python
+import threading
+import time
+
+# Create and start thread
+def worker(name, duration):
+    print(f"{name}: Starting")
+    time.sleep(duration)
+    print(f"{name}: Finished")
+
+# Method 1: Create thread
+t1 = threading.Thread(target=worker, args=("Thread-1", 2))
+t1.start()  # Start thread
+t1.join()   # Wait for completion
+
+# Method 2: Multiple threads
+threads = []
+for i in range(5):
+    t = threading.Thread(target=worker, args=(f"Thread-{i}", 1))
+    t.start()
+    threads.append(t)
+
+# Wait for all threads
+for t in threads:
+    t.join()
+
+# Thread with return value (using queue)
+from queue import Queue
+
+def worker_with_result(name, queue):
+    result = f"{name}: Result"
+    queue.put(result)
+
+result_queue = Queue()
+t = threading.Thread(target=worker_with_result, args=("Worker", result_queue))
+t.start()
+t.join()
+print(result_queue.get())  # Worker: Result
+```
+
+#### Thread Synchronization
+
+```python
+# Problem: Race condition
+counter = 0
+
+def increment():
+    global counter
+    for _ in range(100000):
+        counter += 1  # NOT atomic!
+
+threads = [threading.Thread(target=increment) for _ in range(10)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+print(counter)  # Likely not 1000000! Race condition
+
+# Solution 1: Lock
+counter = 0
+lock = threading.Lock()
+
+def increment_safe():
+    global counter
+    for _ in range(100000):
+        with lock:  # Acquire lock
+            counter += 1
+        # Lock released
+
+threads = [threading.Thread(target=increment_safe) for _ in range(10)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+print(counter)  # 1000000 - correct!
+
+# Solution 2: RLock (Reentrant Lock)
+rlock = threading.RLock()
+
+def recursive_function(n):
+    with rlock:
+        if n > 0:
+            recursive_function(n - 1)  # Can acquire same lock again
+
+# Solution 3: Semaphore (limit concurrent access)
+semaphore = threading.Semaphore(3)  # Max 3 threads
+
+def limited_worker(name):
+    with semaphore:
+        print(f"{name}: Working")
+        time.sleep(1)
+
+# Only 3 threads work at a time
+threads = [threading.Thread(target=limited_worker, args=(f"T{i}",)) for i in range(10)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+# Solution 4: Event (signal between threads)
+event = threading.Event()
+
+def waiter():
+    print("Waiting for event...")
+    event.wait()  # Block until event is set
+    print("Event received!")
+
+def setter():
+    time.sleep(2)
+    print("Setting event")
+    event.set()
+
+t1 = threading.Thread(target=waiter)
+t2 = threading.Thread(target=setter)
+t1.start()
+t2.start()
+t1.join()
+t2.join()
+```
+
+```mermaid
+sequenceDiagram
+    participant T1 as Thread 1
+    participant L as Lock
+    participant T2 as Thread 2
+
+    T1->>L: Acquire lock
+    L-->>T1: Lock granted
+    T2->>L: Try to acquire lock
+    L-->>T2: Block (wait)
+    T1->>T1: Critical section
+    T1->>L: Release lock
+    L-->>T2: Lock granted
+    T2->>T2: Critical section
+    T2->>L: Release lock
+```
+
+#### Thread Pools
+
+```python
+from concurrent.futures import ThreadPoolExecutor
+import time
+
+def task(n):
+    print(f"Task {n}: Starting")
+    time.sleep(1)
+    return f"Task {n}: Result"
+
+# Create thread pool
+with ThreadPoolExecutor(max_workers=5) as executor:
+    # Submit single task
+    future = executor.submit(task, 1)
+    print(future.result())  # Wait and get result
+
+    # Submit multiple tasks
+    futures = [executor.submit(task, i) for i in range(10)]
+
+    # Get results as they complete
+    from concurrent.futures import as_completed
+    for future in as_completed(futures):
+        print(future.result())
+
+# map() - process iterable
+with ThreadPoolExecutor(max_workers=5) as executor:
+    results = executor.map(task, range(10))
+    for result in results:
+        print(result)
+```
+
+### Multiprocessing
+
+Separate processes with independent memory - bypasses GIL.
+
+#### Basic Multiprocessing
+
+```python
+import multiprocessing
+import os
+
+def worker(name):
+    print(f"{name}: PID {os.getpid()}")
+    return f"{name}: Done"
+
+# Create and start process
+p = multiprocessing.Process(target=worker, args=("Process-1",))
+p.start()
+p.join()
+
+# Multiple processes
+processes = []
+for i in range(5):
+    p = multiprocessing.Process(target=worker, args=(f"Process-{i}",))
+    p.start()
+    processes.append(p)
+
+for p in processes:
+    p.join()
+
+# Process with return value (using Queue)
+def worker_with_result(name, queue):
+    result = f"{name}: Result"
+    queue.put(result)
+
+queue = multiprocessing.Queue()
+p = multiprocessing.Process(target=worker_with_result, args=("Worker", queue))
+p.start()
+p.join()
+print(queue.get())
+```
+
+#### Process Pools
+
+```python
+from multiprocessing import Pool
+
+def square(n):
+    return n * n
+
+# Create process pool
+with Pool(processes=4) as pool:
+    # map() - process iterable
+    results = pool.map(square, range(10))
+    print(results)  # [0, 1, 4, 9, 16, 25, 36, 49, 64, 81]
+
+    # apply() - single task
+    result = pool.apply(square, (5,))
+    print(result)  # 25
+
+    # starmap() - multiple arguments
+    def add(a, b):
+        return a + b
+
+    results = pool.starmap(add, [(1, 2), (3, 4), (5, 6)])
+    print(results)  # [3, 7, 11]
+
+# Process Pool Executor (unified interface)
+from concurrent.futures import ProcessPoolExecutor
+
+with ProcessPoolExecutor(max_workers=4) as executor:
+    results = executor.map(square, range(10))
+    print(list(results))
+```
+
+#### Shared Memory
+
+```python
+from multiprocessing import Process, Value, Array, Manager
+
+# Shared value
+def increment(counter, lock):
+    for _ in range(100000):
+        with lock:
+            counter.value += 1
+
+counter = Value('i', 0)  # Shared integer
+lock = multiprocessing.Lock()
+
+processes = [Process(target=increment, args=(counter, lock)) for _ in range(10)]
+for p in processes:
+    p.start()
+for p in processes:
+    p.join()
+
+print(counter.value)  # 1000000
+
+# Shared array
+def fill_array(arr, index, value):
+    arr[index] = value
+
+arr = Array('i', 10)  # Shared array of 10 integers
+processes = [Process(target=fill_array, args=(arr, i, i*2)) for i in range(10)]
+for p in processes:
+    p.start()
+for p in processes:
+    p.join()
+
+print(list(arr))  # [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+
+# Manager (more flexible, slower)
+def modify_dict(d, key, value):
+    d[key] = value
+
+manager = Manager()
+shared_dict = manager.dict()
+
+processes = [Process(target=modify_dict, args=(shared_dict, i, i*2)) for i in range(5)]
+for p in processes:
+    p.start()
+for p in processes:
+    p.join()
+
+print(dict(shared_dict))  # {0: 0, 1: 2, 2: 4, 3: 6, 4: 8}
+```
+
+### Async/Await (Asyncio)
+
+Asynchronous I/O using coroutines and event loop.
+
+#### Basic Async
+
+```python
+import asyncio
+
+# Async function (coroutine)
+async def say_hello(name, delay):
+    print(f"{name}: Starting")
+    await asyncio.sleep(delay)  # Non-blocking sleep
+    print(f"{name}: Finished")
+    return f"{name}: Done"
+
+# Run single coroutine
+result = asyncio.run(say_hello("Task-1", 1))
+print(result)
+
+# Run multiple coroutines concurrently
+async def main():
+    # Create tasks
+    task1 = asyncio.create_task(say_hello("Task-1", 2))
+    task2 = asyncio.create_task(say_hello("Task-2", 1))
+    task3 = asyncio.create_task(say_hello("Task-3", 3))
+
+    # Wait for all tasks
+    results = await asyncio.gather(task1, task2, task3)
+    print(results)
+
+asyncio.run(main())
+
+# Using await
+async def fetch_data(url):
+    await asyncio.sleep(1)  # Simulate network request
+    return f"Data from {url}"
+
+async def main():
+    data = await fetch_data("example.com")
+    print(data)
+
+asyncio.run(main())
+```
+
+#### Async Patterns
+
+```python
+# Pattern 1: gather() - run concurrently, wait for all
+async def task(n):
+    await asyncio.sleep(n)
+    return n
+
+async def main():
+    results = await asyncio.gather(
+        task(1),
+        task(2),
+        task(3)
+    )
+    print(results)  # [1, 2, 3]
+
+asyncio.run(main())
+
+# Pattern 2: wait() - more control
+async def main():
+    tasks = [asyncio.create_task(task(i)) for i in range(1, 4)]
+
+    # Wait for first completion
+    done, pending = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+
+    # Cancel remaining
+    for t in pending:
+        t.cancel()
+
+# Pattern 3: as_completed() - process as they finish
+async def main():
+    tasks = [task(i) for i in [3, 1, 2]]
+
+    for coro in asyncio.as_completed(tasks):
+        result = await coro
+        print(f"Completed: {result}")
+
+asyncio.run(main())
+
+# Pattern 4: Timeout
+async def slow_task():
+    await asyncio.sleep(5)
+    return "Done"
+
+async def main():
+    try:
+        result = await asyncio.wait_for(slow_task(), timeout=2)
+    except asyncio.TimeoutError:
+        print("Task timed out")
+
+asyncio.run(main())
+
+# Pattern 5: Async context manager
+class AsyncResource:
+    async def __aenter__(self):
+        print("Acquiring resource")
+        await asyncio.sleep(1)
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        print("Releasing resource")
+        await asyncio.sleep(1)
+
+async def main():
+    async with AsyncResource() as resource:
+        print("Using resource")
+
+asyncio.run(main())
+
+# Pattern 6: Async iterator
+class AsyncCounter:
+    def __init__(self, stop):
+        self.current = 0
+        self.stop = stop
+
+    def __aiter__(self):
+        return self
+
+    async def __anext__(self):
+        if self.current >= self.stop:
+            raise StopAsyncIteration
+
+        await asyncio.sleep(0.1)
+        self.current += 1
+        return self.current
+
+async def main():
+    async for num in AsyncCounter(5):
+        print(num)
+
+asyncio.run(main())
+```
+
+### Choosing the Right Approach
+
+```python
+# CPU-bound task: Use multiprocessing
+def cpu_intensive(n):
+    """Compute-heavy operation"""
+    return sum(i * i for i in range(n))
+
+# Good: Multiprocessing
+from multiprocessing import Pool
+with Pool() as pool:
+    results = pool.map(cpu_intensive, [10000000] * 4)
+
+# Bad: Threading (GIL prevents parallel execution)
+# from concurrent.futures import ThreadPoolExecutor
+# with ThreadPoolExecutor() as executor:
+#     results = executor.map(cpu_intensive, [10000000] * 4)
+
+# I/O-bound task: Use threading or async
+import requests
+
+def download(url):
+    """Network I/O operation"""
+    response = requests.get(url)
+    return len(response.content)
+
+# Good: Threading
+from concurrent.futures import ThreadPoolExecutor
+urls = ["http://example.com"] * 10
+with ThreadPoolExecutor() as executor:
+    results = executor.map(download, urls)
+
+# Also good: Async (even better for I/O)
+import aiohttp
+
+async def download_async(url):
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url) as response:
+            return len(await response.read())
+
+async def main():
+    tasks = [download_async(url) for url in urls]
+    results = await asyncio.gather(*tasks)
+
+# asyncio.run(main())
+```
+
+```mermaid
+graph TD
+    A[Concurrency Problem] --> B{Task Type?}
+    B -->|CPU-Bound| C[Multiprocessing]
+    B -->|I/O-Bound| D{Style?}
+    D -->|Callback-based| E[Asyncio]
+    D -->|Blocking I/O| F[Threading]
+    D -->|Simple| F
+
+    C --> C1[Separate processes<br/>Bypass GIL<br/>Higher overhead]
+    F --> F1[Shared memory<br/>GIL limits<br/>Good for I/O]
+    E --> E1[Single thread<br/>Event loop<br/>Best for many I/O]
+
+    style C1 fill:#90EE90
+    style F1 fill:#FFE6A0
+    style E1 fill:#E6F3FF
+```
+
+### Practical Example: Concurrent Web Scraper
+
+```python
+import asyncio
+import aiohttp
+import time
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor
+
+class WebScraper:
+    """Compare different concurrency approaches"""
+
+    @staticmethod
+    def scrape_sync(urls):
+        """Synchronous - baseline"""
+        import requests
+
+        start = time.time()
+        results = []
+
+        for url in urls:
+            response = requests.get(url)
+            results.append(len(response.content))
+
+        elapsed = time.time() - start
+        print(f"Sync: {elapsed:.2f}s")
+        return results
+
+    @staticmethod
+    def scrape_threaded(urls):
+        """Threading - good for I/O"""
+        import requests
+
+        def fetch(url):
+            response = requests.get(url)
+            return len(response.content)
+
+        start = time.time()
+
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            results = list(executor.map(fetch, urls))
+
+        elapsed = time.time() - start
+        print(f"Threaded: {elapsed:.2f}s")
+        return results
+
+    @staticmethod
+    async def scrape_async(urls):
+        """Async - best for I/O"""
+
+        async def fetch(session, url):
+            async with session.get(url) as response:
+                return len(await response.read())
+
+        start = time.time()
+
+        async with aiohttp.ClientSession() as session:
+            tasks = [fetch(session, url) for url in urls]
+            results = await asyncio.gather(*tasks)
+
+        elapsed = time.time() - start
+        print(f"Async: {elapsed:.2f}s")
+        return results
+
+# Usage
+urls = ["http://example.com"] * 20
+
+# WebScraper.scrape_sync(urls)      # ~20s (sequential)
+# WebScraper.scrape_threaded(urls)  # ~2s (concurrent)
+# asyncio.run(WebScraper.scrape_async(urls))  # ~1s (fastest!)
+```
+
+### Interview Insight: Why This Matters
+
+Understanding concurrency helps you:
+
+- Optimize performance for I/O and CPU-bound tasks
+- Choose appropriate concurrency model
+- Avoid race conditions and deadlocks
+- Build scalable applications
+
+Common interview questions from this section:
+
+- "Explain Python's GIL and its implications"
+- "When would you use threading vs multiprocessing?"
+- "What is asyncio and when should you use it?"
+- "Explain race conditions and how to prevent them"
+- "What's the difference between concurrent and parallel execution?"
+- "How does async/await work in Python?"
+- "What are the trade-offs between different concurrency models?"
+- "Explain thread synchronization primitives (Lock, Semaphore, Event)"
+
+---
+
+## Interview Preparation
+
+### Overview
+
+This section compiles frequently asked Python interview questions from product-based companies, covering conceptual, coding, debugging, and scenario-based questions. Each question includes the "why" behind it and what interviewers are evaluating.
+
+### Conceptual Questions
+
+#### 1. Core Python Concepts
+
+**Q: What is Python? What are its key features?**
+
+_Why asked:_ Tests basic understanding and communication skills.
+
+_Answer:_
+
+- Interpreted, high-level, dynamically-typed language
+- Key features:
+    - Easy to learn and read (clean syntax)
+    - Extensive standard library
+    - Cross-platform compatibility
+    - Dynamic typing
+    - Automatic memory management
+    - Strong community and ecosystem
+    - Supports multiple paradigms (OOP, functional, procedural)
+
+**Q: Explain Python's GIL. What are its implications?**
+
+_Why asked:_ Tests understanding of Python's internals and concurrency.
+
+_Answer:_
+
+- GIL (Global Interpreter Lock) allows only one thread to execute Python bytecode at a time
+- Implications:
+    - Multi-threading doesn't provide true parallelism for CPU-bound tasks
+    - I/O-bound tasks still benefit from threading
+    - Workarounds: multiprocessing, asyncio, C extensions
+- Exists because: Python's memory management is not thread-safe
+
+```python
+# GIL impact demonstration
+import threading
+import time
+
+# CPU-bound task - NO speedup with threading
+def cpu_task():
+    sum(i*i for i in range(10000000))
+
+start = time.time()
+t1 = threading.Thread(target=cpu_task)
+t2 = threading.Thread(target=cpu_task)
+t1.start(); t2.start()
+t1.join(); t2.join()
+print(f"Threading: {time.time() - start:.2f}s")  # Slow due to GIL
+
+# Use multiprocessing for CPU-bound tasks
+from multiprocessing import Process
+start = time.time()
+p1 = Process(target=cpu_task)
+p2 = Process(target=cpu_task)
+p1.start(); p2.start()
+p1.join(); p2.join()
+print(f"Multiprocessing: {time.time() - start:.2f}s")  # Faster
+```
+
+**Q: What's the difference between `is` and `==`?**
+
+_Why asked:_ Tests understanding of object identity vs value equality.
+
+_Answer:_
+
+- `==` compares values (calls `__eq__`)
+- `is` compares identity (memory address)
+- Use `is` for singleton objects: `None`, `True`, `False`
+
+```python
+a = [1, 2, 3]
+b = [1, 2, 3]
+c = a
+
+print(a == b)  # True (same values)
+print(a is b)  # False (different objects)
+print(a is c)  # True (same object)
+
+# Integer caching
+x = 256
+y = 256
+print(x is y)  # True (small ints are cached)
+
+x = 257
+y = 257
+print(x is y)  # False (larger ints may not be cached)
+```
+
+**Q: Explain mutable vs immutable types**
+
+_Why asked:_ Critical for understanding Python's behavior and avoiding bugs.
+
+_Answer:_
+
+- Immutable: `int`, `float`, `str`, `tuple`, `frozenset`, `bytes`
+    - Cannot be modified after creation
+    - Operations create new objects
+    - Can be dictionary keys
+    - Thread-safe by nature
+
+- Mutable: `list`, `dict`, `set`, `bytearray`, user-defined classes
+    - Can be modified in-place
+    - Cannot be dictionary keys (unhashable)
+    - Require careful handling when passing to functions
+
+```python
+# Immutable - new object created
+s = "hello"
+id_before = id(s)
+s += " world"
+print(id(s) == id_before)  # False
+
+# Mutable - same object modified
+lst = [1, 2, 3]
+id_before = id(lst)
+lst.append(4)
+print(id(lst) == id_before)  # True
+
+# Common pitfall: mutable default argument
+def bad_function(lst=[]):  # DANGEROUS!
+    lst.append(1)
+    return lst
+
+print(bad_function())  # [1]
+print(bad_function())  # [1, 1] - Same list!
+
+# Correct approach
+def good_function(lst=None):
+    if lst is None:
+        lst = []
+    lst.append(1)
+    return lst
+```
+
+**Q: What are \*args and **kwargs?\*\*
+
+_Why asked:_ Tests understanding of flexible function signatures.
+
+_Answer:_
+
+- `*args`: Variable positional arguments (tuple)
+- `**kwargs`: Variable keyword arguments (dict)
+
+```python
+def func(*args, **kwargs):
+    print(f"Args: {args}")      # Tuple
+    print(f"Kwargs: {kwargs}")  # Dict
+
+func(1, 2, 3, name="Alice", age=30)
+# Args: (1, 2, 3)
+# Kwargs: {'name': 'Alice', 'age': 30}
+
+# Unpacking
+numbers = [1, 2, 3]
+func(*numbers)  # Unpacks list as positional args
+
+data = {'x': 10, 'y': 20}
+func(**data)  # Unpacks dict as keyword args
+```
+
+#### 2. Object-Oriented Programming
+
+**Q: Explain the four pillars of OOP**
+
+_Why asked:_ Fundamental OOP knowledge.
+
+_Answer:_
+
+1. **Encapsulation**: Bundle data and methods, hide internal details
+2. **Inheritance**: Derive classes from base classes
+3. **Polymorphism**: Same interface, different implementations
+4. **Abstraction**: Hide complex implementation, show only essential features
+
+```python
+# Encapsulation
+class BankAccount:
+    def __init__(self, balance):
+        self.__balance = balance  # Private
+
+    def deposit(self, amount):
+        self.__balance += amount
+
+# Inheritance
+class SavingsAccount(BankAccount):
+    def __init__(self, balance, interest_rate):
+        super().__init__(balance)
+        self.interest_rate = interest_rate
+
+# Polymorphism
+class Dog:
+    def speak(self):
+        return "Woof!"
+
+class Cat:
+    def speak(self):
+        return "Meow!"
+
+def animal_sound(animal):
+    print(animal.speak())  # Same interface
+
+# Abstraction
+from abc import ABC, abstractmethod
+
+class Shape(ABC):
+    @abstractmethod
+    def area(self):
+        pass
+```
+
+**Q: What's the difference between `@classmethod` and `@staticmethod`?**
+
+_Why asked:_ Tests understanding of different method types.
+
+_Answer:_
+
+```python
+class MyClass:
+    class_var = 0
+
+    def instance_method(self):
+        # Has access to instance (self)
+        return f"Instance: {self}"
+
+    @classmethod
+    def class_method(cls):
+        # Has access to class (cls)
+        # Can access/modify class variables
+        cls.class_var += 1
+        return f"Class: {cls}"
+
+    @staticmethod
+    def static_method(x, y):
+        # No access to instance or class
+        # Just a regular function in class namespace
+        return x + y
+
+# Usage
+obj = MyClass()
+obj.instance_method()       # Needs instance
+MyClass.class_method()      # Can call on class or instance
+MyClass.static_method(1, 2) # Can call on class or instance
+
+# Common use: alternative constructors
+class Date:
+    def __init__(self, year, month, day):
+        self.year = year
+        self.month = month
+        self.day = day
+
+    @classmethod
+    def from_string(cls, date_string):
+        y, m, d = map(int, date_string.split('-'))
+        return cls(y, m, d)
+
+date = Date.from_string("2026-05-15")
+```
+
+**Q: Explain method overriding vs method overloading**
+
+_Why asked:_ Common confusion between OOP concepts.
+
+_Answer:_
+
+- **Method Overriding**: Subclass provides specific implementation of parent method
+- **Method Overloading**: Python doesn't support traditional overloading (multiple methods with same name, different signatures)
+
+```python
+# Method Overriding
+class Animal:
+    def speak(self):
+        return "Some sound"
+
+class Dog(Animal):
+    def speak(self):  # Override
+        return "Woof!"
+
+# Python's "overloading" alternatives
+def add(a, b=0, c=0):  # Default arguments
+    return a + b + c
+
+def add(*args):  # Variable arguments
+    return sum(args)
+
+# Type-based dispatch
+from functools import singledispatch
+
+@singledispatch
+def process(arg):
+    print(f"Generic: {arg}")
+
+@process.register(int)
+def _(arg):
+    print(f"Integer: {arg * 2}")
+
+@process.register(str)
+def _(arg):
+    print(f"String: {arg.upper()}")
+```
+
+#### 3. Memory Management
+
+**Q: How does Python manage memory?**
+
+_Why asked:_ Tests understanding of internals.
+
+_Answer:_
+
+1. **Reference Counting**: Main mechanism; object deallocated when refcount reaches 0
+2. **Garbage Collection**: Handles circular references using generational GC
+3. **Memory Pools**: Python maintains pools of objects for efficiency
+
+```python
+import sys
+
+x = [1, 2, 3]
+print(sys.getrefcount(x))  # Reference count
+
+# Circular reference example
+class Node:
+    def __init__(self):
+        self.ref = None
+
+a = Node()
+b = Node()
+a.ref = b
+b.ref = a  # Circular reference
+
+# Deleted by GC, not reference counting
+del a, b
+import gc
+gc.collect()  # Force garbage collection
+```
+
+**Q: What is `__slots__` and when would you use it?**
+
+_Why asked:_ Tests knowledge of memory optimization.
+
+_Answer:_
+
+- `__slots__` restricts instance attributes, saves memory
+- Use when: Creating many instances of a class
+
+```python
+# Without __slots__
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+# With __slots__
+class Point:
+    __slots__ = ['x', 'y']
+
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+# Memory savings: ~40% less memory
+# Trade-off: Can't add new attributes dynamically
+```
+
+### Coding Challenges
+
+#### 1. List and String Manipulation
+
+**Q: Reverse a string without using built-in reverse**
+
+```python
+def reverse_string(s):
+    # Method 1: Slicing
+    return s[::-1]
+
+    # Method 2: Two pointers
+    chars = list(s)
+    left, right = 0, len(chars) - 1
+    while left < right:
+        chars[left], chars[right] = chars[right], chars[left]
+        left += 1
+        right -= 1
+    return ''.join(chars)
+
+    # Method 3: Stack
+    return ''.join(reversed(s))
+
+print(reverse_string("hello"))  # "olleh"
+```
+
+**Q: Find all permutations of a string**
+
+```python
+def permutations(s):
+    # Recursive approach
+    if len(s) <= 1:
+        return [s]
+
+    result = []
+    for i, char in enumerate(s):
+        remaining = s[:i] + s[i+1:]
+        for perm in permutations(remaining):
+            result.append(char + perm)
+    return result
+
+# Using itertools
+from itertools import permutations as perm
+result = [''.join(p) for p in perm("abc")]
+print(result)  # ['abc', 'acb', 'bac', 'bca', 'cab', 'cba']
+```
+
+**Q: Remove duplicates from list while preserving order**
+
+```python
+def remove_duplicates(lst):
+    # Method 1: dict.fromkeys (Python 3.7+)
+    return list(dict.fromkeys(lst))
+
+    # Method 2: Set with order tracking
+    seen = set()
+    result = []
+    for item in lst:
+        if item not in seen:
+            seen.add(item)
+            result.append(item)
+    return result
+
+lst = [1, 2, 2, 3, 1, 4, 3, 5]
+print(remove_duplicates(lst))  # [1, 2, 3, 4, 5]
+```
+
+**Q: Find the first non-repeating character**
+
+```python
+def first_non_repeating(s):
+    from collections import Counter
+
+    counts = Counter(s)
+    for char in s:
+        if counts[char] == 1:
+            return char
+    return None
+
+print(first_non_repeating("leetcode"))  # 'l'
+print(first_non_repeating("aabb"))      # None
+```
+
+#### 2. Data Structures
+
+**Q: Implement a stack using list**
+
+```python
+class Stack:
+    def __init__(self):
+        self.items = []
+
+    def push(self, item):
+        self.items.append(item)
+
+    def pop(self):
+        if not self.is_empty():
+            return self.items.pop()
+        raise IndexError("Pop from empty stack")
+
+    def peek(self):
+        if not self.is_empty():
+            return self.items[-1]
+        return None
+
+    def is_empty(self):
+        return len(self.items) == 0
+
+    def size(self):
+        return len(self.items)
+```
+
+**Q: Implement LRU Cache**
+
+```python
+from collections import OrderedDict
+
+class LRUCache:
+    def __init__(self, capacity):
+        self.cache = OrderedDict()
+        self.capacity = capacity
+
+    def get(self, key):
+        if key not in self.cache:
+            return -1
+        # Move to end (most recently used)
+        self.cache.move_to_end(key)
+        return self.cache[key]
+
+    def put(self, key, value):
+        if key in self.cache:
+            # Update and move to end
+            self.cache.move_to_end(key)
+        self.cache[key] = value
+        if len(self.cache) > self.capacity:
+            # Remove least recently used (first item)
+            self.cache.popitem(last=False)
+
+# Or use functools.lru_cache decorator
+from functools import lru_cache
+
+@lru_cache(maxsize=128)
+def expensive_function(n):
+    # Computed result is cached
+    return sum(i * i for i in range(n))
+```
+
+**Q: Flatten a nested list**
+
+```python
+def flatten(nested_list):
+    # Recursive
+    result = []
+    for item in nested_list:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            result.append(item)
+    return result
+
+# Iterative using stack
+def flatten_iterative(nested_list):
+    stack = list(reversed(nested_list))
+    result = []
+
+    while stack:
+        item = stack.pop()
+        if isinstance(item, list):
+            stack.extend(reversed(item))
+        else:
+            result.append(item)
+
+    return result
+
+nested = [1, [2, 3, [4, 5]], 6, [7]]
+print(flatten(nested))  # [1, 2, 3, 4, 5, 6, 7]
+```
+
+#### 3. Algorithms
+
+**Q: Implement binary search**
+
+```python
+def binary_search(arr, target):
+    left, right = 0, len(arr) - 1
+
+    while left <= right:
+        mid = (left + right) // 2
+
+        if arr[mid] == target:
+            return mid
+        elif arr[mid] < target:
+            left = mid + 1
+        else:
+            right = mid - 1
+
+    return -1
+
+# Recursive version
+def binary_search_recursive(arr, target, left=0, right=None):
+    if right is None:
+        right = len(arr) - 1
+
+    if left > right:
+        return -1
+
+    mid = (left + right) // 2
+
+    if arr[mid] == target:
+        return mid
+    elif arr[mid] < target:
+        return binary_search_recursive(arr, target, mid + 1, right)
+    else:
+        return binary_search_recursive(arr, target, left, mid - 1)
+```
+
+**Q: Find two numbers that sum to target (Two Sum)**
+
+```python
+def two_sum(nums, target):
+    # Hash map approach - O(n)
+    seen = {}
+
+    for i, num in enumerate(nums):
+        complement = target - num
+        if complement in seen:
+            return [seen[complement], i]
+        seen[num] = i
+
+    return None
+
+print(two_sum([2, 7, 11, 15], 9))  # [0, 1]
+```
+
+**Q: Check if string is palindrome**
+
+```python
+def is_palindrome(s):
+    # Method 1: Simple
+    return s == s[::-1]
+
+    # Method 2: Two pointers
+    left, right = 0, len(s) - 1
+    while left < right:
+        if s[left] != s[right]:
+            return False
+        left += 1
+        right -= 1
+    return True
+
+    # Method 3: Case-insensitive, alphanumeric only
+    def is_palindrome_advanced(s):
+        s = ''.join(c.lower() for c in s if c.isalnum())
+        return s == s[::-1]
+
+print(is_palindrome("racecar"))  # True
+print(is_palindrome_advanced("A man, a plan, a canal: Panama"))  # True
+```
+
+**Q: Fibonacci sequence (multiple approaches)**
+
+```python
+# 1. Recursive (slow - O(2^n))
+def fib_recursive(n):
+    if n <= 1:
+        return n
+    return fib_recursive(n-1) + fib_recursive(n-2)
+
+# 2. Memoization (top-down DP)
+from functools import lru_cache
+
+@lru_cache(maxsize=None)
+def fib_memo(n):
+    if n <= 1:
+        return n
+    return fib_memo(n-1) + fib_memo(n-2)
+
+# 3. Tabulation (bottom-up DP)
+def fib_dp(n):
+    if n <= 1:
+        return n
+
+    dp = [0] * (n + 1)
+    dp[1] = 1
+
+    for i in range(2, n + 1):
+        dp[i] = dp[i-1] + dp[i-2]
+
+    return dp[n]
+
+# 4. Space-optimized
+def fib_optimized(n):
+    if n <= 1:
+        return n
+
+    a, b = 0, 1
+    for _ in range(2, n + 1):
+        a, b = b, a + b
+
+    return b
+
+# 5. Generator
+def fib_generator():
+    a, b = 0, 1
+    while True:
+        yield a
+        a, b = b, a + b
+
+gen = fib_generator()
+print([next(gen) for _ in range(10)])
+```
+
+### Scenario-Based Questions
+
+**Q: You have a large CSV file (10GB). How would you process it in Python?**
+
+_What they're testing:_ Memory management, practical experience
+
+_Answer:_
+
+```python
+# Bad: Load entire file
+# with open('large.csv') as f:
+#     data = f.readlines()  # Out of memory!
+
+# Good: Process line by line
+def process_large_csv(filename):
+    import csv
+
+    with open(filename, 'r') as f:
+        reader = csv.reader(f)
+        headers = next(reader)  # Read header
+
+        for row in reader:  # Process one row at a time
+            process_row(row)
+            # Previous row can be garbage collected
+
+# Better: Use pandas with chunking
+import pandas as pd
+
+chunk_size = 10000
+for chunk in pd.read_csv('large.csv', chunksize=chunk_size):
+    process_chunk(chunk)
+    # Each chunk is processed and released
+
+# Best: Use generators
+def read_large_file(filename):
+    with open(filename, 'r') as f:
+        for line in f:
+            yield process_line(line)
+
+# Process without loading all into memory
+for result in read_large_file('large.csv'):
+    handle_result(result)
+```
+
+**Q: How would you debug a memory leak in Python?**
+
+_What they're testing:_ Debugging skills, tooling knowledge
+
+_Answer:_
+
+```python
+# 1. Use tracemalloc
+import tracemalloc
+
+tracemalloc.start()
+
+# Code that might leak memory
+data = []
+for i in range(1000000):
+    data.append([i] * 100)
+
+snapshot = tracemalloc.take_snapshot()
+top_stats = snapshot.statistics('lineno')
+
+print("Top 10 memory allocations:")
+for stat in top_stats[:10]:
+    print(stat)
+
+tracemalloc.stop()
+
+# 2. Use memory_profiler
+# @profile decorator
+# python -m memory_profiler script.py
+
+# 3. Check for circular references
+import gc
+gc.set_debug(gc.DEBUG_LEAK)
+
+# 4. Use objgraph
+# import objgraph
+# objgraph.show_most_common_types(limit=10)
+# objgraph.show_growth()
+
+# 5. Common causes:
+# - Global variables holding references
+# - Circular references
+# - Not closing files/connections
+# - Large caches without limits
+# - Event listeners not removed
+```
+
+**Q: Design a rate limiter in Python**
+
+_What they're testing:_ System design, practical implementation
+
+_Answer:_
+
+```python
+import time
+from collections import deque
+from threading import Lock
+
+class RateLimiter:
+    """Token bucket rate limiter"""
+
+    def __init__(self, max_requests, time_window):
+        self.max_requests = max_requests
+        self.time_window = time_window
+        self.requests = deque()
+        self.lock = Lock()
+
+    def allow_request(self):
+        with self.lock:
+            now = time.time()
+
+            # Remove old requests outside time window
+            while self.requests and self.requests[0] < now - self.time_window:
+                self.requests.popleft()
+
+            # Check if we can accept new request
+            if len(self.requests) < self.max_requests:
+                self.requests.append(now)
+                return True
+
+            return False
+
+# Usage: 5 requests per 60 seconds
+limiter = RateLimiter(max_requests=5, time_window=60)
+
+def api_call():
+    if limiter.allow_request():
+        print("Request allowed")
+        # Process request
+    else:
+        print("Rate limit exceeded")
+
+# Decorator version
+from functools import wraps
+
+def rate_limit(max_calls, period):
+    calls = deque()
+    lock = Lock()
+
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            with lock:
+                now = time.time()
+
+                # Remove old calls
+                while calls and calls[0] < now - period:
+                    calls.popleft()
+
+                if len(calls) >= max_calls:
+                    raise Exception("Rate limit exceeded")
+
+                calls.append(now)
+                return func(*args, **kwargs)
+
+        return wrapper
+    return decorator
+
+@rate_limit(max_calls=5, period=60)
+def api_endpoint():
+    return "Success"
+```
+
+### Company-Specific Topics
+
+#### Google/Meta/Amazon
+
+Common focus areas:
+
+- **Algorithms & Data Structures**: Strong emphasis
+- **System Design**: Scalability, distributed systems
+- **Code Quality**: Clean, maintainable code
+- **Problem-Solving**: Think out loud, optimize
+
+**Sample Question: Implement a web crawler**
+
+```python
+from collections import deque
+from urllib.parse import urljoin, urlparse
+import requests
+from bs4 import BeautifulSoup
+
+class WebCrawler:
+    def __init__(self, max_pages=100):
+        self.max_pages = max_pages
+        self.visited = set()
+        self.queue = deque()
+
+    def is_valid_url(self, url):
+        parsed = urlparse(url)
+        return bool(parsed.netloc) and bool(parsed.scheme)
+
+    def get_links(self, url):
+        try:
+            response = requests.get(url, timeout=5)
+            soup = BeautifulSoup(response.content, 'html.parser')
+
+            links = []
+            for link in soup.find_all('a'):
+                href = link.get('href')
+                if href:
+                    full_url = urljoin(url, href)
+                    if self.is_valid_url(full_url):
+                        links.append(full_url)
+
+            return links
+        except Exception as e:
+            print(f"Error crawling {url}: {e}")
+            return []
+
+    def crawl(self, start_url):
+        self.queue.append(start_url)
+
+        while self.queue and len(self.visited) < self.max_pages:
+            url = self.queue.popleft()
+
+            if url in self.visited:
+                continue
+
+            print(f"Crawling: {url}")
+            self.visited.add(url)
+
+            # Get links from page
+            links = self.get_links(url)
+
+            # Add new links to queue
+            for link in links:
+                if link not in self.visited:
+                    self.queue.append(link)
+
+        return self.visited
+
+# crawler = WebCrawler(max_pages=50)
+# pages = crawler.crawl("https://example.com")
+```
+
+#### Microsoft
+
+Focus areas:
+
+- **OOP Design**: Strong emphasis on design patterns
+- **Problem Solving**: Multiple approaches
+- **Code Review**: Reading and improving code
+
+**Sample: Implement a caching decorator with TTL**
+
+```python
+import time
+from functools import wraps
+
+def cache_with_ttl(ttl_seconds=60):
+    def decorator(func):
+        cache = {}
+
+        @wraps(func)
+        def wrapper(*args):
+            now = time.time()
+
+            # Check if cached and not expired
+            if args in cache:
+                result, timestamp = cache[args]
+                if now - timestamp < ttl_seconds:
+                    print(f"Cache hit for {args}")
+                    return result
+
+            # Compute and cache
+            print(f"Cache miss for {args}")
+            result = func(*args)
+            cache[args] = (result, now)
+
+            # Clean expired entries
+            expired = [k for k, (_, ts) in cache.items()
+                      if now - ts >= ttl_seconds]
+            for key in expired:
+                del cache[key]
+
+            return result
+
+        return wrapper
+    return decorator
+
+@cache_with_ttl(ttl_seconds=5)
+def expensive_operation(n):
+    time.sleep(2)
+    return n * n
+
+print(expensive_operation(5))  # Cache miss - slow
+print(expensive_operation(5))  # Cache hit - fast
+time.sleep(6)
+print(expensive_operation(5))  # Cache expired - slow
+```
+
+### Python-Specific Tricky Questions
+
+**Q: What is the output?**
+
+```python
+# Question 1
+x = [1, 2, 3]
+y = x
+y.append(4)
+print(x)  # [1, 2, 3, 4] - same object!
+
+# Question 2
+def foo(a, b=[]):
+    b.append(a)
+    return b
+
+print(foo(1))  # [1]
+print(foo(2))  # [1, 2] - Same list!
+
+# Question 3
+x = 5
+def func():
+    x = 10
+
+func()
+print(x)  # 5 - function has local x
+
+# Question 4
+class Test:
+    count = 0
+
+    def __init__(self):
+        Test.count += 1
+
+t1 = Test()
+t2 = Test()
+print(Test.count)  # 2
+
+# Question 5
+print([] == [])  # True (same value)
+print([] is [])  # False (different objects)
+```
+
+**Q: Explain this behavior:**
+
+```python
+# Late binding closure
+funcs = []
+for i in range(3):
+    funcs.append(lambda: i)
+
+print([f() for f in funcs])  # [2, 2, 2] not [0, 1, 2]!
+
+# Why? 'i' is looked up when function is called, not when defined
+# Fix:
+funcs = []
+for i in range(3):
+    funcs.append(lambda i=i: i)  # Capture current value
+
+print([f() for f in funcs])  # [0, 1, 2]
+```
+
+### Best Practices to Mention
+
+1. **Code Style**: Follow PEP 8
+2. **Documentation**: Use docstrings
+3. **Error Handling**: Specific exceptions, proper cleanup
+4. **Testing**: Write unit tests
+5. **Type Hints**: Use for clarity (Python 3.5+)
+6. **Context Managers**: Use `with` for resources
+7. **Comprehensions**: Use when appropriate (readability matters)
+8. **Generators**: For large datasets
+9. **Virtual Environments**: Always use for projects
+10. **Version Control**: Git best practices
+
+### Interview Tips
+
+1. **Communicate**: Think out loud, explain your approach
+2. **Ask Questions**: Clarify requirements before coding
+3. **Start Simple**: Basic solution first, then optimize
+4. **Test**: Walk through test cases, edge cases
+5. **Time/Space Complexity**: Always discuss Big O
+6. **Multiple Solutions**: Show you know different approaches
+7. **Clean Code**: Readable variable names, proper structure
+8. **Know Trade-offs**: Discuss pros/cons of your approach
+
+### Quick Reference: Time Complexities
+
+```python
+# List operations
+lst.append(x)      # O(1)
+lst.pop()          # O(1)
+lst.pop(0)         # O(n)
+lst.insert(0, x)   # O(n)
+lst[i]             # O(1)
+x in lst           # O(n)
+lst.sort()         # O(n log n)
+
+# Dict operations
+d[key] = value     # O(1) average
+d[key]             # O(1) average
+key in d           # O(1) average
+del d[key]         # O(1) average
+
+# Set operations
+s.add(x)           # O(1) average
+x in s             # O(1) average
+s1 | s2            # O(len(s1) + len(s2))
+s1 & s2            # O(min(len(s1), len(s2)))
+
+# String operations
+s1 + s2            # O(n + m)
+s.find(sub)        # O(n)
+s.replace(old, new)# O(n)
+```
+
+### Final Words
+
+This guide covers Python fundamentals comprehensively. For interviews:
+
+1. **Practice Coding**: LeetCode, HackerRank, CodeSignal
+2. **Understand Concepts**: Don't just memorize
+3. **Build Projects**: Apply knowledge practically
+4. **Read Code**: Study Python's standard library
+5. **Stay Updated**: Follow PEPs, new features
+6. **Review Basics**: Even senior roles test fundamentals
+
+**Key Topics by Company Type:**
+
+- **Startups**: Practical skills, full-stack ability, quick learning
+- **Big Tech**: Algorithms, system design, scalability
+- **Financial**: Precision, performance, reliability
+- **Data Science**: NumPy, Pandas, data manipulation
+
+**Remember:** Interviewers look for:
+
+- Problem-solving ability
+- Code quality
+- Communication skills
+- Debugging approach
+- Continuous learning mindset
+
+---
+
+## Conclusion
+
+You now have a comprehensive Python fundamentals guide covering:
+
+✓ Python execution model and syntax
+✓ All data types and structures
+✓ Control flow and pattern matching
+✓ Functions and functional programming
+✓ Object-oriented programming
+✓ Exception handling
+✓ Modules and package management
+✓ Standard library essentials
+✓ Memory management
+✓ Iterators, generators, and decorators
+✓ Concurrency (threading, multiprocessing, async)
+✓ Interview preparation with common questions
+
+**Next Steps:**
+
+1. Practice coding challenges daily
+2. Build projects using these concepts
+3. Review sections regularly
+4. Deep dive into areas of interest
+5. Contribute to open-source projects
+
+**Good luck with your Python journey and interviews!** 🐍
+
+---
+
+**Guide Complete: Python Fundamentals - Interview Ready Edition**
+
+_Version 1.0 - May 2026_
